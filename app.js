@@ -119,6 +119,15 @@
                 handleSave();
             }
         });
+
+        // Warn user before closing if there are unsaved changes
+        window.addEventListener('beforeunload', (e) => {
+            if (hasUnsavedChanges) {
+                e.preventDefault();
+                e.returnValue = 'You have unsaved changes. Please export your data before leaving.';
+                return e.returnValue;
+            }
+        });
     }
 
     // ── CSV Parsing ────────────────────────
@@ -376,15 +385,17 @@
         updateSaveStatus(true);
     }
 
-    // ── Save ───────────────────────────────
     function handleSave() {
-        // Save to localStorage
+        // Save to localStorage (for quick reload)
         localStorage.setItem(STORAGE_KEY, JSON.stringify(csvData));
         localStorage.setItem(STORAGE_HEADERS_KEY, JSON.stringify(csvHeaders));
         localStorage.setItem(STORAGE_POSITION_KEY, currentGroupIndex.toString());
 
+        // Also download CSV file as backup (survives cache clear)
+        handleExport(true);
+
         updateSaveStatus(false);
-        showToast('Data saved locally!');
+        showToast('Saved & CSV file downloaded as backup!');
     }
 
     function updateSaveStatus(unsaved) {
@@ -402,7 +413,7 @@
     }
 
     // ── Export ──────────────────────────────
-    function handleExport() {
+    function handleExport(silent) {
         if (csvData.length === 0 || csvHeaders.length === 0) return;
 
         let csvContent = csvHeaders.join(',') + '\n';
@@ -429,7 +440,9 @@
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        showToast('CSV exported successfully!');
+        if (!silent) {
+            showToast('CSV exported successfully!');
+        }
     }
 
     // ── Toast ──────────────────────────────
