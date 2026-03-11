@@ -34,7 +34,7 @@
     const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
     const currentGroupInput = document.getElementById('currentGroupInput');
-    const totalGroups = document.getElementById('totalGroups');
+    const totalRows = document.getElementById('totalRows');
     const saveBtn = document.getElementById('saveBtn');
     const saveStatus = document.getElementById('saveStatus');
     const toast = document.getElementById('toast');
@@ -370,17 +370,21 @@
     }
 
     function updateNavigation() {
-        currentGroupInput.value = currentGroupIndex + 1;
-        currentGroupInput.max = groups.length;
-        totalGroups.textContent = groups.length;
+        const group = groups[currentGroupIndex];
+        const rowNum = group.rows[0]._originalIndex + 1;
+        currentGroupInput.value = rowNum;
+        currentGroupInput.max = csvData.length;
+        totalRows.textContent = csvData.length;
         prevBtn.disabled = currentGroupIndex === 0;
         nextBtn.disabled = currentGroupIndex === groups.length - 1;
     }
 
     function updateProgress() {
-        progressCurrent.textContent = currentGroupIndex + 1;
-        progressTotal.textContent = groups.length;
-        const pct = ((currentGroupIndex + 1) / groups.length) * 100;
+        const group = groups[currentGroupIndex];
+        const rowNum = group.rows[0]._originalIndex + 1;
+        progressCurrent.textContent = rowNum;
+        progressTotal.textContent = csvData.length;
+        const pct = (rowNum / csvData.length) * 100;
         progressBarFill.style.width = pct + '%';
     }
 
@@ -392,11 +396,29 @@
     }
 
     function jumpToGroupNumber() {
-        let num = parseInt(currentGroupInput.value);
-        if (isNaN(num)) num = 1;
-        num = Math.max(1, Math.min(num, groups.length));
-        currentGroupIndex = num - 1;
-        renderGroup();
+        let rowNum = parseInt(currentGroupInput.value);
+        if (isNaN(rowNum)) rowNum = 1;
+        rowNum = Math.max(1, Math.min(rowNum, csvData.length));
+
+        // Find group that contains this row originalIndex
+        const targetIdx = rowNum - 1;
+        for (let i = 0; i < groups.length; i++) {
+            const hasRow = groups[i].rows.some(r => r._originalIndex === targetIdx);
+            if (hasRow) {
+                currentGroupIndex = i;
+                renderGroup();
+                return;
+            }
+        }
+
+        // If not found in any group (unlikely if data is consistent), find closest
+        for (let i = 0; i < groups.length; i++) {
+            if (groups[i].rows[0]._originalIndex >= targetIdx) {
+                currentGroupIndex = i;
+                renderGroup();
+                return;
+            }
+        }
     }
 
     // ── Location Change ────────────────────

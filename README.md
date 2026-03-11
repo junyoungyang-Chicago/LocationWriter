@@ -19,9 +19,9 @@ A premium web-based tool for identifying and labeling locations in video broadca
 - The new location is added to your dropdown and saved for future use.
 
 ### 4. Move to specific location
-- **Editable Counter**: You can type a specific group number directly into the navigation counter (e.g., `1 / 5458`) and press **Enter** to jump there.
-- **Navigation Buttons**: Use the **"Previous"** and **"Next"** buttons to cycle through groups.
-- **Keyboard Arrows**: Use **`ArrowLeft` / `A`** for Previous and **`ArrowRight` / `D`** for Next.
+- **Editable Row Number**: You can type a **specific Row number** (1-indexed CSV row) directly into the navigation counter (e.g., `500 / 25000`) and the app will jump to the group containing that row.
+- **Navigation Buttons**: Use the "Previous" and "Next" buttons to cycle through groups.
+- **Keyboard Arrows**: Use `ArrowLeft / A` for Previous and `ArrowRight / D` for Next.
 
 ### 5. Other / Advanced
 - **Keyboard Shortcuts**:
