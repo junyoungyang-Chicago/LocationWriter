@@ -581,7 +581,7 @@ body::before {
 /* Timestamps Container */
 /* Fixed height for timestamp module */
 .stamps-section {
-    height: 120px;
+    height: 100px;
     display: flex;
     flex-direction: column;
     gap: 8px;
