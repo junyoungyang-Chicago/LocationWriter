@@ -15,6 +15,9 @@
     const STORAGE_KEY = 'location_identifier_data';
     const STORAGE_HEADERS_KEY = 'location_identifier_headers';
     const STORAGE_POSITION_KEY = 'location_identifier_position';
+    const STORAGE_CUSTOM_LOCATIONS_KEY = 'location_identifier_custom_locations';
+
+    let customLocations = [];    // User-defined location labels
 
     // ── DOM refs ───────────────────────────
     const csvFileInput = document.getElementById('csvFileInput');
@@ -43,6 +46,9 @@
     const gameDate = document.getElementById('gameDate');
     const gameLabel = document.getElementById('gameLabel');
     const exportBtn = document.getElementById('exportBtn');
+    const customLocationWrapper = document.getElementById('customLocationWrapper');
+    const customLocationInput = document.getElementById('customLocationInput');
+    const addLocationBtn = document.getElementById('addLocationBtn');
 
     // ── Init ───────────────────────────────
     function init() {
@@ -50,10 +56,18 @@
         const savedData = localStorage.getItem(STORAGE_KEY);
         const savedHeaders = localStorage.getItem(STORAGE_HEADERS_KEY);
 
+        // Load custom locations
+        const savedCustom = localStorage.getItem(STORAGE_CUSTOM_LOCATIONS_KEY);
+        if (savedCustom) {
+            customLocations = JSON.parse(savedCustom);
+            updateLocationDropdown();
+        }
+
         if (savedData && savedHeaders) {
             csvHeaders = JSON.parse(savedHeaders);
             csvData = JSON.parse(savedData);
             buildGroups();
+            extractExistingLocations();
             // Restore saved position, or jump to first empty
             const savedPosition = localStorage.getItem(STORAGE_POSITION_KEY);
             if (savedPosition !== null) {
@@ -73,6 +87,10 @@
         nextBtn.addEventListener('click', () => navigateGroup(1));
         saveBtn.addEventListener('click', handleSave);
         exportBtn.addEventListener('click', handleExport);
+        addLocationBtn.addEventListener('click', handleAddCustomLocation);
+        customLocationInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleAddCustomLocation();
+        });
 
         // Group input: jump to typed number on Enter or blur
         currentGroupInput.addEventListener('keydown', (e) => {
@@ -140,6 +158,7 @@
             const text = event.target.result;
             parseCSV(text);
             buildGroups();
+            extractExistingLocations();
             jumpToFirstEmpty();
             showMainContent();
             renderGroup();
@@ -248,6 +267,19 @@
                 groups.push(currentGroup);
             }
         }
+    }
+
+    // Extract unique locations from CSV to populate dropdown
+    function extractExistingLocations() {
+        const defaults = ['', 'Bench Signage', 'Static Dasherboard', 'Vomitory', 'undefined'];
+        csvData.forEach(row => {
+            const loc = (row['Location Enhancement Name'] || '').trim();
+            if (loc && !defaults.includes(loc) && !customLocations.includes(loc)) {
+                customLocations.push(loc);
+            }
+        });
+        updateLocationDropdown();
+        localStorage.setItem(STORAGE_CUSTOM_LOCATIONS_KEY, JSON.stringify(customLocations));
     }
 
     function getBaseUrl(url) {
@@ -370,6 +402,15 @@
     // ── Location Change ────────────────────
     function handleLocationChange() {
         const value = locationSelect.value;
+
+        // Show custom input if "undefined" selected
+        if (value === 'undefined') {
+            customLocationWrapper.style.display = 'flex';
+            customLocationInput.focus();
+        } else {
+            customLocationWrapper.style.display = 'none';
+        }
+
         const group = groups[currentGroupIndex];
 
         // Update all rows in the group (bulk edit)
@@ -385,11 +426,64 @@
         updateSaveStatus(true);
     }
 
+    function handleAddCustomLocation() {
+        const val = customLocationInput.value.trim();
+        if (!val) return;
+
+        // Add to state if not exists
+        if (!customLocations.includes(val)) {
+            customLocations.push(val);
+            updateLocationDropdown();
+            // Save custom list immediately
+            localStorage.setItem(STORAGE_CUSTOM_LOCATIONS_KEY, JSON.stringify(customLocations));
+        }
+
+        // Select the new location
+        locationSelect.value = val;
+        customLocationInput.value = '';
+        customLocationWrapper.style.display = 'none';
+
+        // Trigger normal change logic
+        handleLocationChange();
+        showToast(`Added location: ${val}`);
+    }
+
+    function updateLocationDropdown() {
+        // Keep initial options
+        const initials = [
+            { val: '', label: 'Select location' },
+            { val: 'Bench Signage', label: 'Bench Signage' },
+            { val: 'Static Dasherboard', label: 'Static Dasherboard' },
+            { val: 'Vomitory', label: 'Vomitory' },
+            { val: 'undefined', label: 'undefined' }
+        ];
+
+        locationSelect.innerHTML = '';
+
+        // Add default options
+        initials.forEach(opt => {
+            const el = document.createElement('option');
+            el.value = opt.val;
+            el.textContent = opt.label;
+            locationSelect.appendChild(el);
+        });
+
+        // Add custom locations (before undefined)
+        const undefinedOption = locationSelect.querySelector('option[value="undefined"]');
+        customLocations.forEach(loc => {
+            const el = document.createElement('option');
+            el.value = loc;
+            el.textContent = loc;
+            locationSelect.insertBefore(el, undefinedOption);
+        });
+    }
+
     function handleSave() {
         // Save to localStorage (for quick reload)
         localStorage.setItem(STORAGE_KEY, JSON.stringify(csvData));
         localStorage.setItem(STORAGE_HEADERS_KEY, JSON.stringify(csvHeaders));
         localStorage.setItem(STORAGE_POSITION_KEY, currentGroupIndex.toString());
+        localStorage.setItem(STORAGE_CUSTOM_LOCATIONS_KEY, JSON.stringify(customLocations));
 
         // Also download CSV file as backup (survives cache clear)
         handleExport(true);
