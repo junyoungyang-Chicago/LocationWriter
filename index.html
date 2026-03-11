@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Location Identifier - Leafs Broadcast Location Enhancement Tool">
+    <title>Location Identifier</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                        <circle cx="12" cy="10" r="3" />
+                    </svg>
+                </div>
+                <h1>Location Identifier</h1>
+            </div>
+            <div class="header-actions">
+                <div class="progress-indicator" id="progressIndicator" style="display:none;">
+                    <div class="progress-text">
+                        <span id="progressCurrent">0</span> / <span id="progressTotal">0</span> groups
+                    </div>
+                    <div class="progress-bar-track">
+                        <div class="progress-bar-fill" id="progressBarFill"></div>
+                    </div>
+                </div>
+                <label class="btn-import" id="importBtn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    Import CSV
+                    <input type="file" id="csvFileInput" accept=".csv" hidden>
+                </label>
+                <button class="btn-export" id="exportBtn" style="display:none;" title="Export updated CSV">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Export CSV
+                </button>
+            </div>
+        </header>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="emptyState">
+            <div class="empty-icon">
+                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                </svg>
+            </div>
+            <h2>Import CSV to Get Started</h2>
+            <p>Upload <strong>Leafs Broadcast Loc Enhancement Breakouts</strong> CSV file to begin identifying
+                locations.</p>
+            <label class="btn-import-large" for="csvFileInput">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                Choose CSV File
+            </label>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content" id="mainContent" style="display:none;">
+            <div class="content-grid">
+                <!-- Video Panel -->
+                <div class="video-panel">
+                    <div class="video-wrapper" id="videoWrapper">
+                        <video id="videoPlayer" controls>
+                            <source src="" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                        <div class="video-overlay" id="videoOverlay">
+                            <div class="play-btn-overlay">
+                                <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
+                                    <polygon points="5 3 19 12 5 21 5 3" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Game Info Bar -->
+                    <div class="game-info-bar" id="gameInfoBar">
+                        <div class="game-date">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                <line x1="16" y1="2" x2="16" y2="6" />
+                                <line x1="8" y1="2" x2="8" y2="6" />
+                                <line x1="3" y1="10" x2="21" y2="10" />
+                            </svg>
+                            <span id="gameDate">-</span>
+                        </div>
+                        <div class="game-label">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path
+                                    d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                                <line x1="7" y1="7" x2="7.01" y2="7" />
+                            </svg>
+                            <span id="gameLabel">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Panel -->
+                <div class="info-panel">
+                    <!-- Video Link -->
+                    <div class="info-section">
+                        <div class="info-label">Video Link</div>
+                        <a href="#" id="videoLink" class="video-link" target="_blank" rel="noopener">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                <polyline points="15 3 21 3 21 9" />
+                                <line x1="10" y1="14" x2="21" y2="3" />
+                            </svg>
+                            <span id="videoLinkText">-</span>
+                        </a>
+                    </div>
+
+                    <!-- Location Dropdown -->
+                    <div class="info-section">
+                        <div class="info-label">Location Enhancement</div>
+                        <div class="select-wrapper">
+                            <select id="locationSelect">
+                                <option value="">Select location</option>
+                                <option value="Bench Signage">Bench Signage</option>
+                                <option value="Static Dasherboard">Static Dasherboard</option>
+                                <option value="Vomitory">Vomitory</option>
+                                <option value="undefined">undefined</option>
+                            </select>
+                            <div class="select-arrow">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Timestamps -->
+                    <div class="info-section">
+                        <div class="info-label">Time Stamps</div>
+                        <div class="timestamps-container" id="timestampsContainer">
+                            <span class="timestamp-empty">-</span>
+                        </div>
+                    </div>
+
+                    <!-- Bulk Edit Indicator -->
+                    <div class="bulk-indicator" id="bulkIndicator" style="display:none;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                        </svg>
+                        <span id="bulkCount">0</span> rows will be updated (bulk edit)
+                    </div>
+
+                    <!-- Navigation -->
+                    <div class="navigation">
+                        <button class="nav-btn" id="prevBtn" disabled>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="15 18 9 12 15 6" />
+                            </svg>
+                            Previous
+                        </button>
+                        <div class="nav-counter">
+                            <input type="number" id="currentGroupInput" class="group-input" value="0" min="1"> / <span
+                                id="totalGroups">0</span>
+                        </div>
+                        <button class="nav-btn" id="nextBtn" disabled>
+                            Next
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save Bar -->
+            <div class="save-bar">
+                <div class="save-status" id="saveStatus">
+                    <div class="status-dot unsaved"></div>
+                    <span>Unsaved changes</span>
+                </div>
+                <button class="btn-save" id="saveBtn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                        <polyline points="17 21 17 13 7 13 7 21" />
+                        <polyline points="7 3 7 8 15 8" />
+                    </svg>
+                    Save
+                </button>
+            </div>
+        </main>
+
+        <!-- Toast Notification -->
+        <div class="toast" id="toast">
+            <div class="toast-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+            </div>
+            <span class="toast-message" id="toastMessage">Saved successfully!</span>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

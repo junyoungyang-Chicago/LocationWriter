@@ -1,0 +1,446 @@
+/* ========================================
+   Location Identifier - App Logic
+   ======================================== */
+
+(function () {
+    'use strict';
+
+    // ── State ──────────────────────────────
+    let csvData = [];            // Parsed CSV rows (array of objects)
+    let csvHeaders = [];         // Column headers
+    let groups = [];             // Grouped data: same game + same video URL + consecutive timestamps
+    let currentGroupIndex = 0;   // Currently viewed group
+    let hasUnsavedChanges = false;
+
+    const STORAGE_KEY = 'location_identifier_data';
+    const STORAGE_HEADERS_KEY = 'location_identifier_headers';
+    const STORAGE_POSITION_KEY = 'location_identifier_position';
+
+    // ── DOM refs ───────────────────────────
+    const csvFileInput = document.getElementById('csvFileInput');
+    const emptyState = document.getElementById('emptyState');
+    const mainContent = document.getElementById('mainContent');
+    const videoPlayer = document.getElementById('videoPlayer');
+    const videoOverlay = document.getElementById('videoOverlay');
+    const videoLink = document.getElementById('videoLink');
+    const videoLinkText = document.getElementById('videoLinkText');
+    const locationSelect = document.getElementById('locationSelect');
+    const timestampsContainer = document.getElementById('timestampsContainer');
+    const bulkIndicator = document.getElementById('bulkIndicator');
+    const bulkCount = document.getElementById('bulkCount');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const currentGroupInput = document.getElementById('currentGroupInput');
+    const totalGroups = document.getElementById('totalGroups');
+    const saveBtn = document.getElementById('saveBtn');
+    const saveStatus = document.getElementById('saveStatus');
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toastMessage');
+    const progressIndicator = document.getElementById('progressIndicator');
+    const progressCurrent = document.getElementById('progressCurrent');
+    const progressTotal = document.getElementById('progressTotal');
+    const progressBarFill = document.getElementById('progressBarFill');
+    const gameDate = document.getElementById('gameDate');
+    const gameLabel = document.getElementById('gameLabel');
+    const exportBtn = document.getElementById('exportBtn');
+
+    // ── Init ───────────────────────────────
+    function init() {
+        // Try to load saved data from localStorage
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        const savedHeaders = localStorage.getItem(STORAGE_HEADERS_KEY);
+
+        if (savedData && savedHeaders) {
+            csvHeaders = JSON.parse(savedHeaders);
+            csvData = JSON.parse(savedData);
+            buildGroups();
+            // Restore saved position, or jump to first empty
+            const savedPosition = localStorage.getItem(STORAGE_POSITION_KEY);
+            if (savedPosition !== null) {
+                currentGroupIndex = Math.min(parseInt(savedPosition), groups.length - 1);
+            } else {
+                jumpToFirstEmpty();
+            }
+            showMainContent();
+            renderGroup();
+            updateSaveStatus(false);
+        }
+
+        // Event listeners
+        csvFileInput.addEventListener('change', handleFileImport);
+        locationSelect.addEventListener('change', handleLocationChange);
+        prevBtn.addEventListener('click', () => navigateGroup(-1));
+        nextBtn.addEventListener('click', () => navigateGroup(1));
+        saveBtn.addEventListener('click', handleSave);
+        exportBtn.addEventListener('click', handleExport);
+
+        // Group input: jump to typed number on Enter or blur
+        currentGroupInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                jumpToGroupNumber();
+                currentGroupInput.blur();
+            }
+        });
+        currentGroupInput.addEventListener('blur', jumpToGroupNumber);
+
+        videoOverlay.addEventListener('click', () => {
+            videoPlayer.play();
+            videoOverlay.classList.add('hidden');
+        });
+
+        videoPlayer.addEventListener('play', () => videoOverlay.classList.add('hidden'));
+        videoPlayer.addEventListener('pause', () => videoOverlay.classList.remove('hidden'));
+        videoPlayer.addEventListener('ended', () => videoOverlay.classList.remove('hidden'));
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (groups.length === 0) return;
+            if (e.target.tagName === 'SELECT') return;
+
+            if (e.key === 'ArrowLeft' || e.key === 'a') {
+                navigateGroup(-1);
+            } else if (e.key === 'ArrowRight' || e.key === 'd') {
+                navigateGroup(1);
+            } else if (e.key === '1') {
+                locationSelect.value = 'Bench Signage';
+                handleLocationChange();
+            } else if (e.key === '2') {
+                locationSelect.value = 'Static Dasherboard';
+                handleLocationChange();
+            } else if (e.key === '3') {
+                locationSelect.value = 'Vomitory';
+                handleLocationChange();
+            } else if (e.key === '4') {
+                locationSelect.value = 'undefined';
+                handleLocationChange();
+            } else if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                handleSave();
+            }
+        });
+    }
+
+    // ── CSV Parsing ────────────────────────
+    function handleFileImport(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function (event) {
+            const text = event.target.result;
+            parseCSV(text);
+            buildGroups();
+            jumpToFirstEmpty();
+            showMainContent();
+            renderGroup();
+            updateSaveStatus(false);
+            showToast(`Imported ${csvData.length} rows successfully!`);
+        };
+        reader.readAsText(file);
+    }
+
+    function parseCSV(text) {
+        const lines = text.split(/\r?\n/).filter(line => line.trim());
+        if (lines.length < 2) return;
+
+        csvHeaders = parseCSVLine(lines[0]);
+        csvData = [];
+
+        for (let i = 1; i < lines.length; i++) {
+            const values = parseCSVLine(lines[i]);
+            if (values.length === csvHeaders.length) {
+                const row = {};
+                csvHeaders.forEach((header, idx) => {
+                    row[header] = values[idx];
+                });
+                row._originalIndex = i - 1; // Track original row index
+                csvData.push(row);
+            }
+        }
+    }
+
+    function parseCSVLine(line) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (inQuotes) {
+                if (char === '"') {
+                    if (i + 1 < line.length && line[i + 1] === '"') {
+                        current += '"';
+                        i++;
+                    } else {
+                        inQuotes = false;
+                    }
+                } else {
+                    current += char;
+                }
+            } else {
+                if (char === '"') {
+                    inQuotes = true;
+                } else if (char === ',') {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+        }
+        result.push(current.trim());
+        return result;
+    }
+
+    // ── Grouping Logic ─────────────────────
+    // Group rows by: same game (date_event) + same base video URL + consecutive timestamps
+    function buildGroups() {
+        groups = [];
+        if (csvData.length === 0) return;
+
+        // Sort by date_event, then by video URL (base without #t=), then by label_time
+        const sorted = [...csvData].map((row, idx) => ({ ...row, _dataIndex: idx }));
+
+        sorted.sort((a, b) => {
+            const dateComp = (a.date_event || '').localeCompare(b.date_event || '');
+            if (dateComp !== 0) return dateComp;
+
+            const urlA = getBaseUrl(a.timestamp_url || '');
+            const urlB = getBaseUrl(b.timestamp_url || '');
+            const urlComp = urlA.localeCompare(urlB);
+            if (urlComp !== 0) return urlComp;
+
+            return parseInt(a.label_time || 0) - parseInt(b.label_time || 0);
+        });
+
+        let currentGroup = null;
+
+        for (const row of sorted) {
+            const baseUrl = getBaseUrl(row.timestamp_url || '');
+            const time = parseInt(row.label_time || 0);
+
+            if (currentGroup &&
+                currentGroup.dateEvent === row.date_event &&
+                currentGroup.baseUrl === baseUrl &&
+                time - currentGroup.lastTime <= 1) {
+                // Consecutive: add to current group
+                currentGroup.rows.push(row);
+                currentGroup.lastTime = time;
+            } else {
+                // New group
+                currentGroup = {
+                    dateEvent: row.date_event,
+                    baseUrl: baseUrl,
+                    firstTime: time,
+                    lastTime: time,
+                    rows: [row]
+                };
+                groups.push(currentGroup);
+            }
+        }
+    }
+
+    function getBaseUrl(url) {
+        return url.split('#')[0];
+    }
+
+    // Find the first group where Location Enhancement Name is empty
+    function jumpToFirstEmpty() {
+        for (let i = 0; i < groups.length; i++) {
+            const hasEmpty = groups[i].rows.some(row => {
+                const loc = (row['Location Enhancement Name'] || '').trim();
+                return loc === '';
+            });
+            if (hasEmpty) {
+                currentGroupIndex = i;
+                return;
+            }
+        }
+        // If all are filled, stay at index 0
+        currentGroupIndex = 0;
+    }
+
+    // ── Rendering ──────────────────────────
+    function showMainContent() {
+        emptyState.style.display = 'none';
+        mainContent.style.display = 'flex';
+        progressIndicator.style.display = 'flex';
+        exportBtn.style.display = 'inline-flex';
+    }
+
+    function renderGroup() {
+        if (groups.length === 0) return;
+
+        const group = groups[currentGroupIndex];
+        const firstRow = group.rows[0];
+
+        // Update game info
+        gameDate.textContent = firstRow.date_event || '-';
+        gameLabel.textContent = firstRow.label || '-';
+
+        // Update video
+        const videoUrl = group.baseUrl;
+        const startTime = group.firstTime;
+
+        videoPlayer.src = videoUrl + '#t=' + startTime;
+        videoOverlay.classList.remove('hidden');
+
+        // Update video link
+        const fullUrl = firstRow.timestamp_url || '#';
+        videoLink.href = fullUrl;
+        // Shorten displayed URL
+        const shortUrl = videoUrl.split('/').pop();
+        videoLinkText.textContent = shortUrl + ' #t=' + startTime;
+
+        // Update location select
+        const currentLocation = firstRow['Location Enhancement Name'] || '';
+        locationSelect.value = currentLocation;
+
+        // Update timestamps
+        timestampsContainer.innerHTML = '';
+        group.rows.forEach((row, idx) => {
+            const badge = document.createElement('span');
+            badge.className = 'timestamp-badge';
+            badge.textContent = row.label_time + 's';
+            badge.title = `Jump to ${row.label_time}s`;
+            badge.addEventListener('click', () => {
+                videoPlayer.currentTime = parseInt(row.label_time);
+                videoPlayer.play();
+                // Highlight active
+                document.querySelectorAll('.timestamp-badge').forEach(b => b.classList.remove('active'));
+                badge.classList.add('active');
+            });
+            if (idx === 0) badge.classList.add('active');
+            timestampsContainer.appendChild(badge);
+        });
+
+        // Bulk indicator
+        if (group.rows.length > 1) {
+            bulkIndicator.style.display = 'flex';
+            bulkCount.textContent = group.rows.length;
+        } else {
+            bulkIndicator.style.display = 'none';
+        }
+
+        // Navigation
+        updateNavigation();
+        updateProgress();
+    }
+
+    function updateNavigation() {
+        currentGroupInput.value = currentGroupIndex + 1;
+        currentGroupInput.max = groups.length;
+        totalGroups.textContent = groups.length;
+        prevBtn.disabled = currentGroupIndex === 0;
+        nextBtn.disabled = currentGroupIndex === groups.length - 1;
+    }
+
+    function updateProgress() {
+        progressCurrent.textContent = currentGroupIndex + 1;
+        progressTotal.textContent = groups.length;
+        const pct = ((currentGroupIndex + 1) / groups.length) * 100;
+        progressBarFill.style.width = pct + '%';
+    }
+
+    function navigateGroup(direction) {
+        const newIndex = currentGroupIndex + direction;
+        if (newIndex < 0 || newIndex >= groups.length) return;
+        currentGroupIndex = newIndex;
+        renderGroup();
+    }
+
+    function jumpToGroupNumber() {
+        let num = parseInt(currentGroupInput.value);
+        if (isNaN(num)) num = 1;
+        num = Math.max(1, Math.min(num, groups.length));
+        currentGroupIndex = num - 1;
+        renderGroup();
+    }
+
+    // ── Location Change ────────────────────
+    function handleLocationChange() {
+        const value = locationSelect.value;
+        const group = groups[currentGroupIndex];
+
+        // Update all rows in the group (bulk edit)
+        group.rows.forEach(row => {
+            row['Location Enhancement Name'] = value;
+            // Also update the original csvData
+            const dataIdx = row._dataIndex;
+            if (dataIdx !== undefined) {
+                csvData[dataIdx]['Location Enhancement Name'] = value;
+            }
+        });
+
+        updateSaveStatus(true);
+    }
+
+    // ── Save ───────────────────────────────
+    function handleSave() {
+        // Save to localStorage
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(csvData));
+        localStorage.setItem(STORAGE_HEADERS_KEY, JSON.stringify(csvHeaders));
+        localStorage.setItem(STORAGE_POSITION_KEY, currentGroupIndex.toString());
+
+        updateSaveStatus(false);
+        showToast('Data saved locally!');
+    }
+
+    function updateSaveStatus(unsaved) {
+        hasUnsavedChanges = unsaved;
+        const dot = saveStatus.querySelector('.status-dot');
+        const text = saveStatus.querySelector('span');
+
+        if (unsaved) {
+            dot.className = 'status-dot unsaved';
+            text.textContent = 'Unsaved changes';
+        } else {
+            dot.className = 'status-dot saved';
+            text.textContent = 'All changes saved';
+        }
+    }
+
+    // ── Export ──────────────────────────────
+    function handleExport() {
+        if (csvData.length === 0 || csvHeaders.length === 0) return;
+
+        let csvContent = csvHeaders.join(',') + '\n';
+
+        csvData.forEach(row => {
+            const line = csvHeaders.map(header => {
+                let val = row[header] || '';
+                // Escape commas and quotes
+                if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+                    val = '"' + val.replace(/"/g, '""') + '"';
+                }
+                return val;
+            });
+            csvContent += line.join(',') + '\n';
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'Leafs Broadcast Loc Enhancement Breakouts - Updated.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showToast('CSV exported successfully!');
+    }
+
+    // ── Toast ──────────────────────────────
+    function showToast(message) {
+        toastMessage.textContent = message;
+        toast.classList.add('show');
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+
+    // ── Start ──────────────────────────────
+    document.addEventListener('DOMContentLoaded', init);
+})();
