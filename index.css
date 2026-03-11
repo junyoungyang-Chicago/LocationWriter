@@ -307,6 +307,7 @@ body::before {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    min-height: 0;
     animation: slideUp 0.5s ease;
 }
 
@@ -326,6 +327,7 @@ body::before {
     display: grid;
     grid-template-columns: 1fr 380px;
     gap: 24px;
+    align-items: stretch;
 }
 
 /* Video Panel */
@@ -613,13 +615,13 @@ body::before {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 4px 10px;
-    font-size: 0.78rem;
-    font-weight: 600;
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
     background: var(--bg-tertiary);
     border: 1px solid var(--border-secondary);
-    border-radius: var(--radius-sm);
+    border-radius: 8px;
     color: var(--text-secondary);
     cursor: pointer;
     transition: all var(--transition-fast);
@@ -635,6 +637,7 @@ body::before {
     background: var(--accent-primary);
     border-color: var(--accent-primary);
     color: white;
+    box-shadow: 0 0 12px var(--accent-glow);
 }
 
 .timestamp-empty {
@@ -654,40 +657,80 @@ body::before {
     font-size: 0.82rem;
     font-weight: 500;
     color: var(--warning);
-    margin-top: auto;
-    /* Push this and anything below it to the bottom */
+    margin-bottom: 8px;
 }
 
-/* Navigation */
-.navigation {
+/* Navigation Redesign */
+.navigation-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-secondary);
+    margin-top: auto;
+}
+
+.nav-counter {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border-secondary);
 }
 
-.navigation:not(.bulk-indicator + .navigation) {
-    margin-top: auto;
-    /* If bulk indicator is hidden, navigation still pushes to bottom */
+.group-input-wrapper {
+    background: #0f172a;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 6px;
+    padding: 2px;
+    display: inline-flex;
+}
+
+.group-input {
+    width: 75px;
+    padding: 4px 6px;
+    background: transparent;
+    border: none;
+    color: white;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-align: center;
+    outline: none;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.group-input::-webkit-outer-spin-button,
+.group-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+}
+
+.total-count {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.navigation-actions {
+    display: flex;
+    gap: 12px;
 }
 
 .nav-btn {
+    flex: 1;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
     font-family: inherit;
-    font-size: 0.82rem;
-    font-weight: 600;
+    font-size: 0.85rem;
+    font-weight: 700;
     color: var(--text-link);
     background: transparent;
     border: 1px solid var(--border-primary);
     border-radius: var(--radius-md);
     cursor: pointer;
     transition: all var(--transition-fast);
-    text-decoration: none;
 }
 
 .nav-btn:hover:not(:disabled) {
@@ -696,47 +739,8 @@ body::before {
 }
 
 .nav-btn:disabled {
-    opacity: 0.3;
+    opacity: 0.2;
     cursor: not-allowed;
-}
-
-.nav-counter {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.group-input {
-    width: 60px;
-    padding: 4px 6px;
-    font-family: inherit;
-    font-size: 0.82rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: var(--text-primary);
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-primary);
-    border-radius: var(--radius-sm);
-    text-align: center;
-    outline: none;
-    transition: all var(--transition-fast);
-    -moz-appearance: textfield;
-    appearance: textfield;
-}
-
-.group-input::-webkit-outer-spin-button,
-.group-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-
-.group-input:focus {
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 /* ========================================

@@ -196,25 +196,29 @@
                     </div>
 
                     <!-- Navigation -->
-                    <div class="navigation">
-                        <button class="nav-btn" id="prevBtn" disabled>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <polyline points="15 18 9 12 15 6" />
-                            </svg>
-                            Previous
-                        </button>
+                    <div class="navigation-container">
                         <div class="nav-counter">
-                            <input type="number" id="currentGroupInput" class="group-input" value="0" min="1"> / <span
-                                id="totalRows">0</span> rows
+                            <div class="group-input-wrapper">
+                                <input type="number" id="currentGroupInput" class="group-input" value="0" min="1">
+                            </div>
+                            <span class="total-count">/ <span id="totalRows">0</span> rows</span>
                         </div>
-                        <button class="nav-btn" id="nextBtn" disabled>
-                            Next
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
-                                <polyline points="9 18 15 12 9 6" />
-                            </svg>
-                        </button>
+                        <div class="navigation-actions">
+                            <button class="nav-btn" id="prevBtn" disabled>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <polyline points="15 18 9 12 15 6" />
+                                </svg>
+                                Previous
+                            </button>
+                            <button class="nav-btn" id="nextBtn" disabled>
+                                Next
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2">
+                                    <polyline points="9 18 15 12 9 6" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
