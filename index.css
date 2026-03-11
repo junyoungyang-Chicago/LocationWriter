@@ -579,14 +579,14 @@ body::before {
 }
 
 /* Timestamps Container */
-/* Timestamps section should take available space but be scrollable */
+/* Fixed height for timestamp module */
 .stamps-section {
-    flex: 1;
+    height: 120px;
     display: flex;
     flex-direction: column;
     gap: 8px;
-    min-height: 80px;
     overflow: hidden;
+    flex-shrink: 0;
 }
 
 .timestamps-container {
@@ -615,13 +615,15 @@ body::before {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 6px 14px;
-    font-size: 0.8rem;
+    padding: 0 14px;
+    height: 44px;
+    min-width: 60px;
+    font-size: 0.85rem;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     background: var(--bg-tertiary);
     border: 1px solid var(--border-secondary);
-    border-radius: 8px;
+    border-radius: 12px;
     color: var(--text-secondary);
     cursor: pointer;
     transition: all var(--transition-fast);
