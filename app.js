@@ -49,6 +49,7 @@
     const customLocationWrapper = document.getElementById('customLocationWrapper');
     const customLocationInput = document.getElementById('customLocationInput');
     const addLocationBtn = document.getElementById('addLocationBtn');
+    const rearrangeBtn = document.getElementById('rearrangeBtn');
 
     // ── Init ───────────────────────────────
     function init() {
@@ -78,6 +79,7 @@
             showMainContent();
             renderGroup();
             updateSaveStatus(false);
+            rearrangeBtn.style.display = 'inline-flex';
         }
 
         // Event listeners
@@ -87,6 +89,7 @@
         nextBtn.addEventListener('click', () => navigateGroup(1));
         saveBtn.addEventListener('click', handleSave);
         exportBtn.addEventListener('click', handleExport);
+        rearrangeBtn.addEventListener('click', handleRearrangeAndSave);
         addLocationBtn.addEventListener('click', handleAddCustomLocation);
         customLocationInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') handleAddCustomLocation();
@@ -163,6 +166,7 @@
             showMainContent();
             renderGroup();
             updateSaveStatus(false);
+            rearrangeBtn.style.display = 'inline-flex';
             showToast(`Imported ${csvData.length} rows successfully!`);
         };
         reader.readAsText(file);
@@ -283,7 +287,40 @@
     }
 
     function getBaseUrl(url) {
-        return url.split('#')[0];
+        return (url || '').split('#')[0];
+    }
+
+    function handleRearrangeAndSave() {
+        if (csvData.length === 0) return;
+
+        // Perform sorting
+        csvData.sort((a, b) => {
+            const dateComp = (a.date_event || '').localeCompare(b.date_event || '');
+            if (dateComp !== 0) return dateComp;
+
+            const urlA = getBaseUrl(a.timestamp_url || '');
+            const urlB = getBaseUrl(b.timestamp_url || '');
+            const urlComp = urlA.localeCompare(urlB);
+            if (urlComp !== 0) return urlComp;
+
+            return parseInt(a.label_time || 0) - parseInt(b.label_time || 0);
+        });
+
+        // Re-index to make Row 1 match the new first row
+        csvData.forEach((row, idx) => {
+            row._originalIndex = idx;
+            row._dataIndex = idx;
+        });
+
+        // Export this new "Master" CSV
+        handleExport(true, 'Location_Identifier_REARRANGED_MASTER.csv');
+
+        // Re-build everything
+        buildGroups();
+        currentGroupIndex = 0;
+        renderGroup();
+        updateSaveStatus(true);
+        showToast('CSV rearranged chronologically and Master copy downloaded!');
     }
 
     // Find the first group where Location Enhancement Name is empty
@@ -529,7 +566,7 @@
     }
 
     // ── Export ──────────────────────────────
-    function handleExport(silent) {
+    function handleExport(silent, customFilename) {
         if (csvData.length === 0 || csvHeaders.length === 0) return;
 
         let csvContent = csvHeaders.join(',') + '\n';
@@ -537,6 +574,8 @@
         csvData.forEach(row => {
             const line = csvHeaders.map(header => {
                 let val = row[header] || '';
+                // Ensure val is string
+                val = String(val);
                 // Escape commas and quotes
                 if (val.includes(',') || val.includes('"') || val.includes('\n')) {
                     val = '"' + val.replace(/"/g, '""') + '"';
@@ -550,7 +589,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'Leafs Broadcast Loc Enhancement Breakouts - Updated.csv';
+        a.download = customFilename || 'Leafs Broadcast Loc Enhancement Breakouts - Updated.csv';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
