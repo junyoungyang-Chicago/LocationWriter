@@ -11,6 +11,8 @@
     let groups = [];             // Grouped data: same game + same video URL + consecutive timestamps
     let currentGroupIndex = 0;   // Currently viewed group
     let hasUnsavedChanges = false;
+    let enhancementColumnName = 'Location Enhancement'; // Default
+    let originalFilename = 'Location_Identifier_Data.csv';
 
     const STORAGE_KEY = 'location_identifier_data';
     const STORAGE_HEADERS_KEY = 'location_identifier_headers';
@@ -50,6 +52,14 @@
     const customLocationInput = document.getElementById('customLocationInput');
     const addLocationBtn = document.getElementById('addLocationBtn');
     const rearrangeBtn = document.getElementById('rearrangeBtn');
+
+    // Modal DOM refs
+    const columnModal = document.getElementById('columnModal');
+    const columnList = document.getElementById('columnList');
+    const newColumnName = document.getElementById('newColumnName');
+    const confirmNewColumn = document.getElementById('confirmNewColumn');
+
+    let pendingCsvText = '';     // Store CSV text while waiting for column selection
 
     // ── Init ───────────────────────────────
     function init() {
@@ -93,6 +103,12 @@
         addLocationBtn.addEventListener('click', handleAddCustomLocation);
         customLocationInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') handleAddCustomLocation();
+        });
+
+        // Modal listeners
+        confirmNewColumn.addEventListener('click', () => {
+            const name = newColumnName.value.trim();
+            if (name) finalizeImport(name, true);
         });
 
         // Group input: jump to typed number on Enter or blur
@@ -149,6 +165,12 @@
                 return e.returnValue;
             }
         });
+
+        // Port Check: Ensure user is on 8000 for saving to work
+        if (window.location.port !== '8000' && window.location.hostname === 'localhost') {
+            console.warn('App is running on port ' + window.location.port + '. Please use port 8000 to enable local file saving.');
+            showToast('Warning: Use port 8000 to enable saving to your Mac.', 5000);
+        }
     }
 
     // ── CSV Parsing ────────────────────────
@@ -156,20 +178,64 @@
         const file = e.target.files[0];
         if (!file) return;
 
+        originalFilename = file.name;
+
         const reader = new FileReader();
         reader.onload = function (event) {
             const text = event.target.result;
-            parseCSV(text);
-            buildGroups();
-            extractExistingLocations();
-            jumpToFirstEmpty();
-            showMainContent();
-            renderGroup();
-            updateSaveStatus(false);
-            rearrangeBtn.style.display = 'inline-flex';
-            showToast(`Imported ${csvData.length} rows successfully!`);
+            const lines = text.split(/\r?\n/).filter(line => line.trim());
+            if (lines.length < 1) return;
+
+            const headers = parseCSVLine(lines[0]);
+            
+            // Check for existing enhancement columns
+            const found = headers.find(h => 
+                h.toLowerCase() === 'location enhancement' || 
+                h.toLowerCase() === 'location enhancement name'
+            );
+
+            if (found) {
+                enhancementColumnName = found;
+                finalizeImport(enhancementColumnName, false, text);
+            } else {
+                // Show modal for selection
+                pendingCsvText = text;
+                showColumnModal(headers);
+            }
         };
         reader.readAsText(file);
+    }
+
+    function showColumnModal(headers) {
+        columnList.innerHTML = '';
+        headers.forEach(header => {
+            const btn = document.createElement('button');
+            btn.className = 'column-btn';
+            btn.textContent = header;
+            btn.title = `Use "${header}" as enhancement column`;
+            btn.onclick = () => finalizeImport(header, false);
+            columnList.appendChild(btn);
+        });
+        columnModal.style.display = 'flex';
+    }
+
+    function finalizeImport(colName, isNew, text) {
+        enhancementColumnName = colName;
+        columnModal.style.display = 'none';
+        
+        const csvText = text || pendingCsvText;
+        parseCSV(csvText);
+        
+        buildGroups();
+        extractExistingLocations();
+        jumpToFirstEmpty();
+        showMainContent();
+        renderGroup();
+        updateSaveStatus(false);
+        rearrangeBtn.style.display = 'inline-flex';
+        showToast(`Imported ${csvData.length} rows using column "${colName}"`);
+        
+        pendingCsvText = '';
     }
 
     function parseCSV(text) {
@@ -179,6 +245,13 @@
         csvHeaders = parseCSVLine(lines[0]);
         csvData = [];
 
+        // Detect which enhancement column to use once
+        if (csvHeaders.includes('Location Enhancement Name')) {
+            enhancementColumnName = 'Location Enhancement Name';
+        } else if (csvHeaders.includes('Location Enhancement')) {
+            enhancementColumnName = 'Location Enhancement';
+        }
+
         for (let i = 1; i < lines.length; i++) {
             const values = parseCSVLine(lines[i]);
             if (values.length === csvHeaders.length) {
@@ -186,9 +259,20 @@
                 csvHeaders.forEach((header, idx) => {
                     row[header] = values[idx];
                 });
+
+                // Ensure the enhancement column exists in the row
+                if (!row[enhancementColumnName]) {
+                    row[enhancementColumnName] = '';
+                }
+
                 row._originalIndex = i - 1; // Track original row index
                 csvData.push(row);
             }
+        }
+
+        // Ensure the enhancement column is in the headers for export
+        if (!csvHeaders.includes(enhancementColumnName)) {
+            csvHeaders.push(enhancementColumnName);
         }
     }
 
@@ -277,7 +361,7 @@
     function extractExistingLocations() {
         const defaults = ['', 'Bench Signage', 'Static Dasherboard', 'Vomitory', 'undefined'];
         csvData.forEach(row => {
-            const loc = (row['Location Enhancement Name'] || '').trim();
+            const loc = (row[enhancementColumnName] || '').trim();
             if (loc && !defaults.includes(loc) && !customLocations.includes(loc)) {
                 customLocations.push(loc);
             }
@@ -323,11 +407,11 @@
         showToast('CSV rearranged chronologically and Master copy downloaded!');
     }
 
-    // Find the first group where Location Enhancement Name is empty
+    // Find the first group where enhancement column is empty
     function jumpToFirstEmpty() {
         for (let i = 0; i < groups.length; i++) {
             const hasEmpty = groups[i].rows.some(row => {
-                const loc = (row['Location Enhancement Name'] || '').trim();
+                const loc = (row[enhancementColumnName] || '').trim();
                 return loc === '';
             });
             if (hasEmpty) {
@@ -372,7 +456,7 @@
         videoLinkText.textContent = shortUrl + ' #t=' + startTime;
 
         // Update location select
-        const currentLocation = firstRow['Location Enhancement Name'] || '';
+        const currentLocation = firstRow[enhancementColumnName] || '';
         locationSelect.value = currentLocation;
 
         // Update timestamps
@@ -474,11 +558,11 @@
 
         // Update all rows in the group (bulk edit)
         group.rows.forEach(row => {
-            row['Location Enhancement Name'] = value;
+            row[enhancementColumnName] = value;
             // Also update the original csvData
             const dataIdx = row._dataIndex;
             if (dataIdx !== undefined) {
-                csvData[dataIdx]['Location Enhancement Name'] = value;
+                csvData[dataIdx][enhancementColumnName] = value;
             }
         });
 
@@ -566,7 +650,7 @@
     }
 
     // ── Export ──────────────────────────────
-    function handleExport(silent, customFilename) {
+    async function handleExport(silent, customFilename) {
         if (csvData.length === 0 || csvHeaders.length === 0) return;
 
         let csvContent = csvHeaders.join(',') + '\n';
@@ -585,15 +669,49 @@
             csvContent += line.join(',') + '\n';
         });
 
+        // Determine filename
+        let filename = customFilename;
+        if (!filename) {
+            const dotIdx = originalFilename.lastIndexOf('.');
+            if (dotIdx !== -1) {
+                filename = originalFilename.substring(0, dotIdx) + '_updated' + originalFilename.substring(dotIdx);
+            } else {
+                filename = originalFilename + '_updated.csv';
+            }
+        }
+
+        // 1. Browser Download (Standard)
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = customFilename || 'Leafs Broadcast Loc Enhancement Breakouts - Updated.csv';
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+
+        // 2. Save to Local Server (New)
+        try {
+            const response = await fetch('/save-csv', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filename: filename,
+                    content: csvContent
+                })
+            });
+            const result = await response.json();
+            if (result.status === 'success') {
+                console.log('Successfully saved to server:', result.message);
+                if (!silent) {
+                    showToast('CSV exported & saved to server!');
+                }
+                return;
+            }
+        } catch (err) {
+            console.error('Failed to save to server:', err);
+        }
 
         if (!silent) {
             showToast('CSV exported successfully!');
@@ -601,12 +719,12 @@
     }
 
     // ── Toast ──────────────────────────────
-    function showToast(message) {
+    function showToast(message, duration = 3000) {
         toastMessage.textContent = message;
         toast.classList.add('show');
         setTimeout(() => {
             toast.classList.remove('show');
-        }, 3000);
+        }, duration);
     }
 
     // ── Start ──────────────────────────────
